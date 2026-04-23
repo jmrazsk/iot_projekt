@@ -424,6 +424,110 @@
                 font-size: 1.6rem;
             }
         }
+        /* ===== PREVODNÍK ===== */
+        .converter-section {
+            margin-top: 22px;
+        }
+
+        .converter-section .panel {
+            border-top: 3px solid #7c3aed;
+        }
+
+        .select-field select {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(255,255,255,0.85);
+            color: var(--text);
+            border-radius: 14px;
+            padding: 14px 15px;
+            font-size: 1rem;
+            appearance: none;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        .select-field select:focus {
+            outline: none;
+            border-color: rgba(124, 58, 237, 0.45);
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.10);
+        }
+
+        .convert-btn {
+            width: 100%;
+            border: none;
+            border-radius: 14px;
+            padding: 14px 18px;
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: white;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s ease;
+            margin-top: 18px;
+        }
+
+        .convert-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 22px rgba(124, 58, 237, 0.25);
+        }
+
+        .convert-result {
+            display: none;
+            margin-top: 20px;
+            border-radius: 18px;
+            padding: 18px;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(109, 40, 217, 0.04));
+            border: 1px solid rgba(124, 58, 237, 0.18);
+        }
+
+        .convert-result.show {
+            display: block;
+            animation: rise 0.35s ease;
+        }
+
+        .convert-result .result-value {
+            color: #7c3aed;
+        }
+
+        .convert-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255,255,255,0.6);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .convert-table thead th {
+            text-align: left;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--muted);
+            background: rgba(248, 250, 252, 0.95);
+            padding: 14px 12px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .convert-table tbody td {
+            padding: 14px 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            font-size: 0.95rem;
+        }
+
+        .convert-table tbody tr:hover {
+            background: rgba(124, 58, 237, 0.04);
+        }
+
+        .convert-result-cell {
+            color: #7c3aed;
+            font-weight: 800;
+        }
+
+        @media (max-width: 860px) {
+            .converter-section .grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -527,6 +631,65 @@
                 </div>
             </div>
         </section>
+        <!-- ===== PREVODNÍK JEDNOTIEK ===== -->
+        <section class="converter-section">
+            <section class="grid">
+                <div class="panel">
+                    <h2>🌡️ Prevodník jednotiek</h2>
+                    <p class="panel-subtext">
+                        Preveďte hodnoty z IoT senzorov. Výsledok sa uloží do súboru <code>prevody.json</code> na serveri.
+                    </p>
+
+                    <div class="field">
+                        <label for="prevodHodnota">Hodnota</label>
+                        <input type="number" id="prevodHodnota" step="any" placeholder="Napr. 22.5" required>
+                    </div>
+
+                    <div class="field select-field">
+                        <label for="prevodTyp">Typ prevodu</label>
+                        <select id="prevodTyp" onchange="refreshPrevodUrl()">
+                            <option value="c_to_f">°C → °F (teplota)</option>
+                            <option value="hpa_to_mmhg">hPa → mmHg (tlak)</option>
+                            <option value="ms_to_kmh">m/s → km/h (rýchlosť vetra)</option>
+                        </select>
+                    </div>
+
+                    <div class="secondary-box" style="margin-top: 14px;">
+                        <strong>Request URL:</strong><br>
+                        <span id="prevodUrlPreview">/api/prevod?hodnota=_&typ=c_to_f</span>
+                    </div>
+
+                    <button class="convert-btn" id="prevodBtn" onclick="vykonejPrevod()">
+                        Previesť
+                    </button>
+
+                    <div class="convert-result" id="prevodResult">
+                        <div class="result-label">Výsledok prevodu</div>
+                        <div class="result-value" id="prevodResultValue">—</div>
+                        <div class="result-meta" id="prevodResultMeta"></div>
+                    </div>
+
+                    <div class="alert" id="prevodError"></div>
+                </div>
+
+                <div class="panel">
+                    <div class="history-head">
+                        <div>
+                            <h2>📋 História prevodov</h2>
+                            <p class="panel-subtext" style="margin-bottom:0;">
+                                Dáta z endpointu <code>/api/historia-prevodov</code>
+                            </p>
+                        </div>
+                        <span class="small-chip" style="background: rgba(124,58,237,0.08); color: #7c3aed; border-color: rgba(124,58,237,0.12);">JSON súbor</span>
+                    </div>
+
+                    <div class="history-wrap" id="prevodHistoryContent">
+                        <p class="loading-state">Načítavam...</p>
+                    </div>
+                </div>
+            </section>
+        </section>
+
     </main>
 
     <script>
@@ -662,6 +825,101 @@
 
         refreshPreview();
         loadHistory();
+
+        // ===== PREVODNÍK =====
+
+        function refreshPrevodUrl() {
+            const h = document.getElementById("prevodHodnota").value || "_";
+            const t = document.getElementById("prevodTyp").value;
+            document.getElementById("prevodUrlPreview").innerHTML =
+                `<span class="base">${API_ROOT}</span>/api/prevod?hodnota=${h}&typ=${t}`;
+        }
+
+        document.getElementById("prevodHodnota").addEventListener("input", refreshPrevodUrl);
+
+        async function vykonejPrevod() {
+            const hodnota = document.getElementById("prevodHodnota").value;
+            const typ = document.getElementById("prevodTyp").value;
+            const errorBox = document.getElementById("prevodError");
+            const resultDiv = document.getElementById("prevodResult");
+
+            errorBox.style.display = "none";
+            resultDiv.classList.remove("show");
+
+            if (!hodnota) {
+                errorBox.style.display = "block";
+                errorBox.textContent = "⚠️ Zadajte hodnotu!";
+                return;
+            }
+
+            const btn = document.getElementById("prevodBtn");
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spin"></span>Prevádzam...`;
+
+            try {
+                const response = await fetch(`${API_ROOT}/api/prevod?hodnota=${hodnota}&typ=${typ}`);
+                const data = await response.json();
+
+                if (data.chyba) {
+                    errorBox.style.display = "block";
+                    errorBox.textContent = "⚠️ " + data.chyba;
+                } else {
+                    document.getElementById("prevodResultValue").textContent = data.popis;
+                    document.getElementById("prevodResultMeta").textContent = `Uložené: ${data.cas}`;
+                    resultDiv.classList.add("show");
+                    loadPrevodHistory();
+                }
+            } catch (err) {
+                errorBox.style.display = "block";
+                errorBox.textContent = "⚠️ Server neodpovedá.";
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = "Previesť";
+            }
+        }
+
+        async function loadPrevodHistory() {
+            const wrap = document.getElementById("prevodHistoryContent");
+            try {
+                const response = await fetch(`${API_ROOT}/api/historia-prevodov`);
+                const items = await response.json();
+
+                if (!items.length) {
+                    wrap.innerHTML = `<p class="empty-state">Zatiaľ žiadne prevody.</p>`;
+                    return;
+                }
+
+                let html = `
+                    <table class="convert-table">
+                        <thead>
+                            <tr>
+                                <th>Vstup</th>
+                                <th>Typ</th>
+                                <th>Výsledok</th>
+                                <th>Čas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                items.forEach(item => {
+                    html += `
+                        <tr>
+                            <td>${item.hodnota}</td>
+                            <td>${item.typ}</td>
+                            <td class="convert-result-cell">${item.popis}</td>
+                            <td class="history-time">${item.cas}</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+                wrap.innerHTML = html;
+            } catch (err) {
+                wrap.innerHTML = `<p class="empty-state" style="color:#dc2626;">Nepodarilo sa načítať.</p>`;
+            }
+        }
+
+        refreshPrevodUrl();
+        loadPrevodHistory();
     </script>
 </body>
 </html>

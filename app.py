@@ -21,6 +21,7 @@ from flask_cors import CORS
 import sqlite3
 import datetime
 import os
+import json
 
 # ─────────────────────────────────────────────────────────────────────────────
 # VYTVORENIE APLIKÁCIE
@@ -85,6 +86,28 @@ def nacitaj_vsetky_vypocty():
     riadky = cursor.fetchall()
     conn.close()
     return [dict(riadok) for riadok in riadky]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JSON SÚBOR — Prevody jednotiek
+# ─────────────────────────────────────────────────────────────────────────────
+SUBOR_PREVODY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prevody.json")
+
+
+def nacitaj_prevody():
+    """Načíta všetky prevody z JSON súboru. Ak súbor neexistuje, vráti []."""
+    if not os.path.exists(SUBOR_PREVODY):
+        return []
+    with open(SUBOR_PREVODY, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def uloz_prevod(zaznam):
+    """Pridá nový záznam prevodu do JSON súboru."""
+    prevody = nacitaj_prevody()
+    prevody.append(zaznam)
+    with open(SUBOR_PREVODY, "w", encoding="utf-8") as f:
+        json.dump(prevody, f, ensure_ascii=False, indent=2)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -224,6 +247,66 @@ def iot_odosli():
         },
         "sprava": "Dáta zo senzora boli úspešne prijaté."
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ROUTE 8: API — Prevodník jednotiek
+# URL: /api/prevod?hodnota=100&typ=c_to_f
+# Podporované typy: c_to_f, hpa_to_mmhg, ms_to_kmh
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/api/prevod")
+def prevod():
+    """
+    Prevádza hodnotu z jednej jednotky do druhej a výsledok uloží do prevody.json.
+    
+    Príklady URL:
+        /api/prevod?hodnota=100&typ=c_to_f
+        /api/prevod?hodnota=1013&typ=hpa_to_mmhg
+        /api/prevod?hodnota=10&typ=ms_to_kmh
+    """
+    hodnota = request.args.get("hodnota", type=float)
+    typ = request.args.get("typ", "c_to_f")
+
+    if hodnota is None:
+        return jsonify({"chyba": "Zadajte hodnotu!"}), 400
+
+    if typ == "c_to_f":
+        vysledok = (hodnota * 9 / 5) + 32
+        popis = f"{hodnota} °C = {round(vysledok, 2)} °F"
+    elif typ == "hpa_to_mmhg":
+        vysledok = hodnota * 0.75006
+        popis = f"{hodnota} hPa = {round(vysledok, 2)} mmHg"
+    elif typ == "ms_to_kmh":
+        vysledok = hodnota * 3.6
+        popis = f"{hodnota} m/s = {round(vysledok, 2)} km/h"
+    else:
+        return jsonify({"chyba": f"Neznámy typ prevodu: {typ}"}), 400
+
+    zaznam = {
+        "hodnota": hodnota,
+        "typ": typ,
+        "vysledok": round(vysledok, 2),
+        "popis": popis,
+        "cas": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    uloz_prevod(zaznam)
+
+    return jsonify(zaznam)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ROUTE 9: API — História prevodov
+# URL: /api/historia-prevodov
+# ─────────────────────────────────────────────────────────────────────────────
+@app.route("/api/historia-prevodov")
+def historia_prevodov():
+    """
+    Načíta a vráti celú históriu prevodov z prevody.json.
+    Ak súbor neexistuje, vráti prázdny zoznam.
+    """
+    prevody = nacitaj_prevody()
+    # Vrátime od najnovšieho
+    return jsonify(list(reversed(prevody)))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
