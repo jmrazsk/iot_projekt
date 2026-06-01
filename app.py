@@ -1,18 +1,11 @@
-"""
-=============================================================================
-SKÚŠKA — Programovanie (varianta A) — IoT Backend: Anketa [VERZIA 3]
-=============================================================================
-"""
-
-from flask import Flask, request, jsonify, send_from_directory  # OPRAVA #1: sendfromdirectory → send_from_directory (nesprávny názov importu, Flask funkcia sa volá send_from_directory)
+from flask import Flask, request, jsonify, send_from_directory  # OPRAVA #1: sendfromdirectory → send_from_directory
 import json
 import os
 import datetime
 
-app = Flask(__name__)  # OPRAVA #2: name → __name__ (Flask vyžaduje dvojité podčiarkovníky, inak by app nevedela kde sa nachádza)
+app = Flask(__name__)  # OPRAVA #2: name → __name__
 SUBOR = "hlasy.json"
 
-# Module-level počítadlo všetkých hlasov
 total_hlasov = 0
 
 def nacitaj_hlasy():
@@ -31,10 +24,10 @@ def uloz_hlas(hlas):
 def hlasuj():
     moznost = request.args.get("moznost", "").strip().upper()
 
-    if not moznost:
-        return jsonify({"chyba": "Chýba moznost"}), 400
+    if moznost not in ("A", "B", "C"):  # OPRAVA #3: pôvodne len kontrola prázdneho stringu — treba odmietnuť aj neplatné hodnoty ako XYZ, inak sa uloží nezmysel a vysledky padnú na KeyError
+        return jsonify({"chyba": "Neplatná moznost"}), 400
 
-    global total_hlasov  # OPRAVA #3: chýbalo 'global total_hlasov' — bez toho Python pri priradení total_hlasov += 1 hodí UnboundLocalError, lebo hľadá lokálnu premennú
+    global total_hlasov  # OPRAVA #4: chýbalo global — Python hodí UnboundLocalError pri += na modulovej premennej bez deklarácie global
     total_hlasov += 1
 
     hlas = {
@@ -51,7 +44,8 @@ def vysledky():
 
     pocty = {"A": 0, "B": 0, "C": 0}
     for h in hlasy:
-        pocty[h["moznost"]] += 1
+        if h["moznost"] in pocty:  # OPRAVA #3 súvisí tu — bez validácie pri hlasovaní by tu padol KeyError na neznámej možnosti; s validáciou vyššie je to bezpečné, ale defensive check nevadí
+            pocty[h["moznost"]] += 1
 
     return jsonify(pocty)
 
@@ -59,7 +53,7 @@ def vysledky():
 def posledne():
     n = request.args.get("n", default=10, type=int)
     hlasy = nacitaj_hlasy()
-    return jsonify(hlasy[-n:])  # OPRAVA #4: hlasy[:n] → hlasy[-n:] — [:n] vracia prvých n hlasov, ale endpoint má vracať POSLEDNÝCH n hlasov
+    return jsonify(hlasy[-n:])  # OPRAVA (slice): [:n] vracia prvých n, [-n:] vracia posledných n
 
 @app.route("/api/podrobne")
 def podrobne():
@@ -90,5 +84,5 @@ def podrobne():
 def index():
     return send_from_directory(".", "frontend.html")
 
-if __name__ == "__main__":  # OPRAVA #2 súvisí aj tu: name == "main" → __name__ == "__main__"
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
