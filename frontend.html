@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT Anketa</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 2em auto; padding: 1em; }
+        h1 { color: #333; }
+        .moznosti { display: flex; gap: 1em; margin: 2em 0; }
+        .moznost {
+            flex: 1; padding: 1.5em; font-size: 1.3em; border: 2px solid #ccc;
+            border-radius: 8px; background: white; cursor: pointer;
+        }
+        .moznost:hover { border-color: #0ea5e9; background: #f0f9ff; }
+        .vysledky { padding: 1em; background: #f3f4f6; border-radius: 6px; }
+        .bar {
+            height: 30px; background: #0ea5e9; margin: 0.3em 0;
+            color: white; padding: 0.3em 0.5em; border-radius: 4px;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <h1>IoT Anketa — vyber jednu možnosť</h1>
+
+    <div class="moznosti">
+        <button class="moznost" data-moznost="A">A</button>
+        <button class="moznost" data-moznost="B">B</button>
+        <button class="moznost" data-moznost="C">C</button>
+    </div>
+
+    <h2>Aktuálne výsledky</h2>
+    <div class="vysledky" id="vysledky">načítavam...</div>
+
+    <script>
+        async function nacitajVysledky() {
+            const r = await fetch("/api/vysledky");
+            const data = await r.json();
+            const div = document.getElementById("vysledky");
+            const total = (data.A || 0) + (data.B || 0) + (data.C || 0);
+            if (total === 0) {
+                div.innerHTML = "<em>Zatiaľ žiadne hlasy.</em>";
+                return;
+            }
+            div.innerHTML = ["A", "B", "C"].map(m => {
+                const pocet = data[m] || 0;
+                const pct = Math.round(pocet / total * 100);
+                return `<div class="bar" style="width: ${Math.max(pct, 5)}%">
+                    ${m}: ${pocet} (${pct}%)
+                </div>`;
+            }).join("");
+        }
+
+        document.querySelectorAll(".moznost").forEach(btn => {
+            btn.onclick = async () => {
+                const moznost = btn.dataset.moznost;
+                const r = await fetch(`/api/hlasuj?moznost=${moznost}`);  // OPRAVA #5: chýbali backticky — bez nich JS nevyhodnotí ${moznost} ako premennú, pošle doslova reťazec "/api/hlasuj?moznost=${moznost}"
+                if (r.ok) {
+                    nacitajVysledky();
+                } else {
+                    alert("Chyba pri hlasovaní: " + r.status);
+                }
+            };
+        });
+
+        nacitajVysledky();
+    </script>
+</body>
+</html>
