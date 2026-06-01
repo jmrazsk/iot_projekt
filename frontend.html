@@ -54,13 +54,16 @@
         document.querySelectorAll(".moznost").forEach(btn => {
             btn.onclick = async () => {
                 const moznost = btn.dataset.moznost;
-                const r = await fetch(`/api/hlasuj?moznost=${moznost}`);  // OPRAVA #5: chýbali backticky — bez nich JS nevyhodnotí ${moznost} ako premennú, pošle doslova reťazec "/api/hlasuj?moznost=${moznost}"
+                const r = await fetch(`/api/hlasuj?moznost=${moznost}`, {
+                    method: "POST"   // OPRAVA #5: chýbalo method: "POST" — fetch defaultne posiela GET, ale endpoint vyžaduje POST, preto 405 Method Not Allowed
+                });
                 if (r.ok) {
                     nacitajVysledky();
                 } else {
                     alert("Chyba pri hlasovaní: " + r.status);
                 }
             };
+
         });
 
         nacitajVysledky();
