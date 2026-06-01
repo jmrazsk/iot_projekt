@@ -24,10 +24,10 @@ def uloz_hlas(hlas):
 def hlasuj():
     moznost = request.args.get("moznost", "").strip().upper()
 
-    if moznost not in ("A", "B", "C"):  # OPRAVA #3: pôvodne len kontrola prázdneho stringu — treba odmietnuť aj neplatné hodnoty ako XYZ, inak sa uloží nezmysel a vysledky padnú na KeyError
+    if moznost not in ("A", "B", "C"):  # OPRAVA #3: pôvodne kontrolovala iba ci je prazdny string if not moznost: co neosetruje ak by bol input hocijake ine pismeno ako ABC co by bol problem pretoze slovnik pocty ma iba tieto tri pismena 
         return jsonify({"chyba": "Neplatná moznost"}), 400
 
-    global total_hlasov  # OPRAVA #4: chýbalo global — Python hodí UnboundLocalError pri += na modulovej premennej bez deklarácie global
+    global total_hlasov  # OPRAVA #4: chýbalo global — Python hodí error ak sa snazim robit += vo funkcii bez global
     total_hlasov += 1
 
     hlas = {
@@ -44,8 +44,8 @@ def vysledky():
 
     pocty = {"A": 0, "B": 0, "C": 0}
     for h in hlasy:
-        if h["moznost"] in pocty:  # OPRAVA #3 súvisí tu — bez validácie pri hlasovaní by tu padol KeyError na neznámej možnosti; s validáciou vyššie je to bezpečné, ale defensive check nevadí
-            pocty[h["moznost"]] += 1
+        pocty[h["moznost"]] += 1
+
 
     return jsonify(pocty)
 
@@ -53,7 +53,7 @@ def vysledky():
 def posledne():
     n = request.args.get("n", default=10, type=int)
     hlasy = nacitaj_hlasy()
-    return jsonify(hlasy[-n:])  # OPRAVA (slice): [:n] vracia prvých n, [-n:] vracia posledných n
+    return jsonify(hlasy[:n])  
 
 @app.route("/api/podrobne")
 def podrobne():

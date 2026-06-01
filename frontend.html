@@ -55,7 +55,7 @@
             btn.onclick = async () => {
                 const moznost = btn.dataset.moznost;
                 const r = await fetch(`/api/hlasuj?moznost=${moznost}`, {
-                    method: "POST"   // OPRAVA #5: chýbalo method: "POST" — fetch defaultne posiela GET, ale endpoint vyžaduje POST, preto 405 Method Not Allowed
+                    method: "POST"   // OPRAVA #5: chýbalo method: "POST" — fetch defaultne posiela GET, ale endpoint vyžaduje POST
                 });
                 if (r.ok) {
                     nacitajVysledky();
